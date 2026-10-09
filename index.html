@@ -687,11 +687,15 @@ body { overflow-x:hidden; }
    Publishable key is safe for frontend use; RLS protects data.
    ============================================================ */
 const SUPABASE_URL = 'https://pxylmpszsaqhwlexjjoe.supabase.co';
-
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_8x0xvjpu--ZKgDCBzpNmzA_2jPZeim4';
+
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 1 ngày kể từ lúc đăng nhập
+const SESSION_LOGIN_TIME_KEY = 'financial_dashboard_login_at';
+
 const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
+    SUPABASE_PUBLISHABLE_KEY,
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
 );
 
 let currentUser = null;
@@ -732,6 +736,7 @@ async function handleLogin(e){
     const btn=document.getElementById('loginBtn');
     btn.disabled=true; setAuthLoading(true); setAuthMessage('');
     const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+    if(!error) localStorage.setItem(SESSION_LOGIN_TIME_KEY, String(Date.now()));
     btn.disabled=false; setAuthLoading(false);
     if(error){
         setAuthMessage('Đăng nhập không thành công: '+error.message,'error');
@@ -774,6 +779,7 @@ async function handleReset(e){
 }
 
 async function handleLogout(){
+    localStorage.removeItem(SESSION_LOGIN_TIME_KEY);
     await supabaseClient.auth.signOut();
     currentUser=null; cloudReady=false;
     document.getElementById('authGate')?.classList.remove('hidden');
@@ -998,10 +1004,22 @@ function subscribeRealtime(){
 }
 
 supabaseClient.auth.onAuthStateChange((event,session)=>{
+    // Ghi thời điểm đăng nhập mới; không gia hạn chỉ vì reload trang.
+    if(event === 'SIGNED_IN') localStorage.setItem(SESSION_LOGIN_TIME_KEY, String(Date.now()));
     // Do not await Supabase calls directly inside the auth callback.
     // Schedule the cloud initialization after the callback returns.
     setTimeout(async()=>{
         if(session?.user){
+            const loginAt = Number(localStorage.getItem(SESSION_LOGIN_TIME_KEY) || 0);
+            if(!loginAt || (Date.now() - loginAt) >= SESSION_MAX_AGE_MS){
+                localStorage.removeItem(SESSION_LOGIN_TIME_KEY);
+                await supabaseClient.auth.signOut();
+                currentUser=null; cloudReady=false;
+                document.getElementById('authGate')?.classList.remove('hidden');
+                setCloudStatus('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',true);
+                authInitialized=true;
+                return;
+            }
             const userChanged = currentUser?.id !== session.user.id;
             currentUser=session.user;
             if(event==='SIGNED_IN' || event==='INITIAL_SESSION' || userChanged || !cloudReady){
@@ -1096,7 +1114,7 @@ function bootSupabaseApp(){
             renderTable();
             renderShoppingList();
             renderMonthlyTab(selectedMonth);
-            updateOverviewKPIs();
+            renderOverviewKPIs();
         }
 
         function switchTab(tabId, btn) {
