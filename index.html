@@ -687,6 +687,7 @@ body { overflow-x:hidden; }
    Publishable key is safe for frontend use; RLS protects data.
    ============================================================ */
 const SUPABASE_URL = 'https://pxylmpszsaqhwlexjjoe.supabase.co';
+
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_8x0xvjpu--ZKgDCBzpNmzA_2jPZeim4';
 
 const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 1 ngày kể từ lúc đăng nhập
@@ -1114,7 +1115,7 @@ function bootSupabaseApp(){
             renderTable();
             renderShoppingList();
             renderMonthlyTab(selectedMonth);
-            renderOverviewKPIs();
+            updateOverviewKPIs();
         }
 
         function switchTab(tabId, btn) {
