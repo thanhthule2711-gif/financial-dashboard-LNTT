@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Dashboard | Lê Nguyễn Thanh Thư</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pastelPink: '#FFF0F5',
+                        pastelPeach: '#FFF5EE',
+                        pastelPurple: '#F3E8FF',
+                        accentPink: '#EC4899',
+                        accentPurple: '#8B5CF6',
+                        accentOrange: '#F97316',
+                        darkText: '#1F2937',
+                        mutedText: '#4B5563'
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js & SheetJS (XLSX) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #FDF2F8; }
+        ::-webkit-scrollbar-thumb { background: #F472B6; border-radius: 9999px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+<style id="ux-upgrade">
+/* ===== UX UPGRADE ===== */
+html { scroll-behavior:smooth; }
+body { overflow-x:hidden; }
+@media (max-width: 767px){
+  body { display:block !important; min-height:100dvh; }
+  body > aside {
+    position:sticky; top:0; width:100% !important; height:auto; min-height:0;
+    z-index:40; padding:10px 12px !important; border-right:0;
+    border-bottom:1px solid rgba(236,72,153,.14);
+  }
+  body > aside > div:first-child { width:100%; }
+  body > aside .mb-8 { margin-bottom:10px !important; }
+  body > aside .flex.items-center.space-x-3.mb-8 { margin-bottom:10px !important; }
+  body > aside nav {
+    display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;
+    scrollbar-width:none;
+  }
+  body > aside nav::-webkit-scrollbar { display:none; }
+  body > aside .nav-btn {
+    flex:0 0 auto; width:auto !important; white-space:nowrap;
+    padding:9px 12px !important; font-size:11px !important;
+  }
+  body > aside .nav-btn i { display:none; }
+  body > aside > div:last-child { display:none; }
+  main { max-height:none !important; overflow:visible !important; padding:12px !important; }
+  header { position:sticky; top:76px; z-index:30; padding:12px !important; margin-bottom:12px !important; }
+  #page-title { font-size:16px !important; line-height:1.35; }
+  header .flex.items-center.space-x-3 { width:100%; }
+  #globalYearSelect { min-width:82px; }
+  header button { flex:1; }
+  section.tab-content { gap:12px !important; }
+  section.tab-content > div { padding:14px !important; border-radius:18px !important; }
+  .relative.h-72 { height:260px !important; }
+  .relative.h-64 { height:240px !important; }
+  .relative.h-56 { height:220px !important; }
+  table { min-width:720px; }
+  .overflow-x-auto { -webkit-overflow-scrolling:touch; }
+  #mobile-summary-strip { display:grid !important; }
+}
+@media (min-width:768px){
+  #mobile-summary-strip { display:none !important; }
+}
+.ux-card-hover { transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.ux-card-hover:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(31,41,55,.07); border-color:rgba(236,72,153,.22); }
+.chart-tooltip-note { font-size:10px; color:#6B7280; margin-top:5px; }
+.timeline-wrap { position:relative; }
+.timeline-wrap:before {
+  content:""; position:absolute; left:11px; top:8px; bottom:8px; width:2px;
+  background:linear-gradient(#f9a8d4,#c4b5fd); border-radius:999px;
+}
+.timeline-item { position:relative; padding-left:32px; }
+.timeline-dot {
+  position:absolute; left:4px; top:4px; width:16px; height:16px; border-radius:50%;
+  background:#fff; border:4px solid #ec4899; box-shadow:0 0 0 3px #fdf2f8;
+}
+.timeline-item.expense .timeline-dot { border-color:#8b5cf6; }
+.timeline-item.income .timeline-dot { border-color:#10b981; }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
+</style>
+
+
+<style id="supabase-auth-css">
+/* ===== SUPABASE AUTH / CLOUD SYNC ===== */
+#authGate{
+  position:fixed; inset:0; z-index:1000;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  background:linear-gradient(135deg,rgba(255,240,245,.97),rgba(255,245,238,.97),rgba(243,232,255,.97));
+  backdrop-filter:blur(14px);
+}
+#authGate.hidden{display:none;}
+.auth-card{
+  width:min(430px,100%);
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(236,72,153,.14);
+  border-radius:28px;
+  box-shadow:0 24px 80px rgba(31,41,55,.14);
+  padding:28px;
+}
+.auth-logo{
+  width:58px;height:58px;border-radius:20px;
+  background:linear-gradient(135deg,#ec4899,#8b5cf6);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;font-size:24px;box-shadow:0 12px 24px rgba(236,72,153,.22);
+}
+.auth-input{
+  width:100%;padding:12px 14px;border-radius:13px;
+  border:1px solid #fbcfe8;background:#fff7fb;outline:none;
+  font-size:13px;transition:.2s;
+}
+.auth-input:focus{border-color:#ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.08);}
+.auth-btn{
+  width:100%;padding:12px 16px;border-radius:13px;border:0;
+  color:#fff;font-weight:700;font-size:13px;
+  background:linear-gradient(90deg,#ec4899,#8b5cf6);
+  box-shadow:0 8px 18px rgba(236,72,153,.2);cursor:pointer;
+}
+.auth-btn:disabled{opacity:.6;cursor:not-allowed;}
+.auth-link{color:#db2777;font-weight:700;cursor:pointer;}
+.auth-message{font-size:12px;border-radius:12px;padding:10px 12px;display:none;}
+.auth-message.error{display:block;background:#fff1f2;color:#be123c;border:1px solid #fecdd3;}
+.auth-message.success{display:block;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;}
+#authModeRegister,#authModeReset{display:none;}
+.cloud-status{
+  display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
+  padding:6px 9px;border-radius:999px;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;
+}
+.cloud-status.offline{background:#fff7ed;color:#c2410c;border-color:#fed7aa;}
+.cloud-dot{width:7px;height:7px;border-radius:50%;background:#10b981;}
+.cloud-status.offline .cloud-dot{background:#f97316;}
+@media(max-width:767px){
+  #authGate{padding:14px;}
+  .auth-card{padding:22px;border-radius:24px;}
+}
+</style>
+
+</head>
+
+<!-- ===== AUTH GATE ===== -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-logo"><i class="fa-solid fa-chart-pie"></i></div>
+    <div class="text-center mb-6">
+      <h2 class="text-xl font-bold text-darkText">Financial Dashboard</h2>
+      <p class="text-xs text-mutedText mt-1">Đăng nhập để đồng bộ dữ liệu trên mọi thiết bị</p>
+    </div>
+
+    <div id="authMessage" class="auth-message mb-4"></div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <label class="block text-xs font-bold text-mutedText mb-1.5">Email</label>
+      <input id="loginEmail" type="email" class="auth-input mb-3" placeholder="you@example.com" autocomplete="email" required>
+      <label class="block text-xs font-bold text-mutedText mb-1.5">Mật khẩu</label>
+      <input id="loginPassword" type="password" class="auth-input mb-4" placeholder="••••••••" autocomplete="current-password" required>
+      <button id="loginBtn" type="submit" class="auth-btn">Đăng nhập</button>
+      <div class="text-center mt-4 text-xs text-mutedText">
+        Chưa có tài khoản?
+        <span class="auth-link" onclick="showAuthMode('register')">Đăng ký</span>
+      </div>
+      <div class="text-center mt-2 text-xs">
+        <span class="auth-link" onclick="showAuthMode('reset')">Quên mật khẩu?</span>
+      </div>
+    </form>
+
+    <form id="registerForm" onsubmit="handleRegister(event)" style="display:none;">
+      <label class="block text-xs font-bold text-mutedText mb-1.5">Email</label>
+      <input id="registerEmail" type="email" class="auth-input mb-3" placeholder="you@example.com" autocomplete="email" required>
+      <label class="block text-xs font-bold text-mutedText mb-1.5">Mật khẩu</label>
+      <input id="registerPassword" type="password" class="auth-input mb-4" placeholder="Ít nhất 6 ký tự" minlength="6" autocomplete="new-password" required>
+      <button id="registerBtn" type="submit" class="auth-btn">Tạo tài khoản</button>
+      <div class="text-center mt-4 text-xs text-mutedText">
+        Đã có tài khoản?
+        <span class="auth-link" onclick="showAuthMode('login')">Đăng nhập</span>
+      </div>
+    </form>
+
+    <form id="resetForm" onsubmit="handleReset(event)" style="display:none;">
+      <label class="block text-xs font-bold text-mutedText mb-1.5">Email tài khoản</label>
+      <input id="resetEmail" type="email" class="auth-input mb-4" placeholder="you@example.com" autocomplete="email" required>
+      <button id="resetBtn" type="submit" class="auth-btn">Gửi email đặt lại mật khẩu</button>
+      <div class="text-center mt-4 text-xs">
+        <span class="auth-link" onclick="showAuthMode('login')">← Quay lại đăng nhập</span>
+      </div>
+    </form>
+
+    <div id="authLoading" class="hidden text-center mt-5 text-xs text-mutedText">
+      <i class="fa-solid fa-circle-notch fa-spin mr-1 text-accentPink"></i> Đang kết nối dữ liệu...
+    </div>
+  </div>
+</div>
+
+<body class="bg-gradient-to-br from-pastelPink via-pastelPeach to-pastelPurple min-h-screen font-sans text-darkText flex flex-col md:flex-row antialiased">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-full md:w-72 bg-white/85 backdrop-blur-md border-r border-pink-100 flex flex-col justify-between p-6 shadow-sm z-20">
+        <div>
+            <!-- User Profile -->
+            <div class="flex items-center space-x-3 mb-8 px-2">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-400 to-purple-400 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-pink-200">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="font-bold text-base text-darkText">Lê Nguyễn Thanh Thư</h1>
+                    <p id="userEmailLabel" class="text-[10px] text-mutedText truncate max-w-[180px]">Chưa đăng nhập</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-2">
+                <button onclick="switchTab('overview', this)" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md shadow-pink-200">
+                    <i class="fa-solid fa-chart-line w-5 text-center"></i>
+                    <span>Báo cáo Tổng quát</span>
+                </button>
+                <button onclick="switchTab('monthly', this)" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-mutedText hover:bg-pink-50 hover:text-accentPink">
+                    <i class="fa-solid fa-calendar-days w-5 text-center"></i>
+                    <span>Báo cáo Tháng</span>
+                </button>
+                <button onclick="switchTab('details', this)" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-mutedText hover:bg-pink-50 hover:text-accentPink">
+                    <i class="fa-solid fa-table-cells w-5 text-center"></i>
+                    <span>Báo cáo chi tiết</span>
+                </button>
+                <button onclick="switchTab('shopping', this)" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-mutedText hover:bg-pink-50 hover:text-accentPink">
+                    <i class="fa-solid fa-bag-shopping w-5 text-center"></i>
+                    <span>Shopping List</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl p-4 border border-pink-100 mt-6 md:mt-0">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-accentPink">Đồng bộ tự động</span>
+                <span id="sidebar-year-label" class="text-xs text-mutedText">2027</span>
+            </div>
+            <p class="text-[11px] text-mutedText"><i class="fa-solid fa-bolt text-accentOrange mr-1"></i> Realtime Cloud Sync</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto max-h-screen">
+        
+        <!-- Top Header with Popup Selectors -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white/70 backdrop-blur-md rounded-2xl p-5 mb-6 border border-pink-100 shadow-sm gap-4">
+            <div>
+                <h2 id="page-title" class="text-xl md:text-2xl font-bold text-darkText">Báo cáo Tổng quát Tài chính 2027</h2>
+            </div>
+            <div class="flex items-center space-x-3 flex-wrap gap-2">
+                <div class="flex items-center space-x-2 bg-pink-50/70 px-3 py-1.5 rounded-xl border border-pink-100">
+                    <span class="text-xs font-bold text-mutedText"><i class="fa-solid fa-calendar mr-1 text-accentPink"></i> Năm:</span>
+                    <select id="globalYearSelect" onchange="changeYear(this.value)" class="text-xs font-bold bg-white border border-pink-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accentPink text-accentPink">
+                        <option value="2026">2026</option>
+                        <option value="2027" selected>2027</option>
+                        <option value="2028">2028</option>
+                        <option value="2029">2029</option>
+                        <option value="2030">2030</option>
+                    </select>
+                </div>
+                <span id="cloudStatus" class="cloud-status"><span class="cloud-dot"></span><span id="cloudStatusText">Đang kết nối</span></span>
+                <button onclick="exportReportExcel()" class="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-pink-200 hover:opacity-95 transition">
+                    <i class="fa-solid fa-file-excel mr-1.5"></i> Xuất Excel (.xlsx)
+                </button>
+                <button onclick="handleLogout()" class="bg-white text-mutedText px-3 py-2 rounded-xl text-xs font-semibold border border-pink-100 hover:text-rose-500 transition" title="Đăng xuất">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+
+<div id="mobile-summary-strip" class="hidden grid-cols-3 gap-2 mb-3">
+  <div class="bg-white/85 border border-pink-100 rounded-xl p-3">
+    <div class="text-[9px] uppercase font-bold text-mutedText">Thu</div>
+    <div id="mobileIncome" class="text-xs font-bold text-emerald-600 mt-1">0 ₫</div>
+  </div>
+  <div class="bg-white/85 border border-pink-100 rounded-xl p-3">
+    <div class="text-[9px] uppercase font-bold text-mutedText">Chi</div>
+    <div id="mobileExpense" class="text-xs font-bold text-rose-600 mt-1">0 ₫</div>
+  </div>
+  <div class="bg-white/85 border border-pink-100 rounded-xl p-3">
+    <div class="text-[9px] uppercase font-bold text-mutedText">Dư</div>
+    <div id="mobileSaving" class="text-xs font-bold text-accentPurple mt-1">0 ₫</div>
+  </div>
+</div>
+
+        <!-- TAB 1: BÁO CÁO TỔNG QUÁT -->
+        <section id="overview" class="tab-content active space-y-6">
+            <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-base text-darkText"><i class="fa-solid fa-vault text-accentPink mr-2"></i>Quỹ các Ví (Tổng hợp toàn bộ các năm)</h4>
+                    <span class="text-xs bg-pink-50 text-accentPink px-3 py-1 rounded-full font-semibold">Realtime Sync</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" id="walletsContainer"></div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-pink-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-mutedText uppercase">Tổng Thu Nhập</span>
+                        <div class="w-10 h-10 rounded-xl bg-pink-50 text-accentPink flex items-center justify-center font-bold"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <h3 id="ov-income" class="text-2xl font-bold text-darkText">0 ₫</h3>
+                </div>
+                <div class="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-pink-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-mutedText uppercase">Tổng Chi Tiêu</span>
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 text-accentPurple flex items-center justify-center font-bold"><i class="fa-solid fa-receipt"></i></div>
+                    </div>
+                    <h3 id="ov-expense" class="text-2xl font-bold text-darkText">0 ₫</h3>
+                </div>
+                <div class="bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-pink-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-mutedText uppercase">Số Dư Tiết Kiệm</span>
+                        <div class="w-10 h-10 rounded-xl bg-orange-50 text-accentOrange flex items-center justify-center font-bold"><i class="fa-solid fa-piggy-bank"></i></div>
+                    </div>
+                    <h3 id="ov-saving" class="text-2xl font-bold text-darkText">0 ₫</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 id="bar-chart-title" class="font-bold text-base text-darkText"><i class="fa-solid fa-chart-column text-accentPink mr-2"></i>Biểu đồ Thu - Chi năm 2027</h4>
+                        <span id="chart-year-badge" class="text-xs bg-pink-50 text-accentPink px-3 py-1 rounded-full font-semibold">Analytics</span>
+                    </div>
+                    <div class="relative h-72 w-full"><canvas id="barChart"></canvas></div>
+                </div>
+                <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="font-bold text-base text-darkText"><i class="fa-solid fa-chart-pie text-accentPurple mr-2"></i>Tỷ trọng Chi Tiêu</h4>
+                        <span class="text-xs bg-purple-50 text-accentPurple px-3 py-1 rounded-full font-semibold">Cơ cấu</span>
+                    </div>
+                    <div class="relative h-64 w-full flex items-center justify-center"><canvas id="pieChart"></canvas></div>
+                </div>
+            </div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm ux-card-hover">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h4 class="font-bold text-base text-darkText"><i class="fa-solid fa-timeline text-accentPink mr-2"></i>Dòng tiền theo thời gian</h4>
+        <p class="text-[11px] text-mutedText mt-1">Click vào điểm dữ liệu để xem nhanh tháng phát sinh.</p>
+      </div>
+      <span class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-semibold">Interactive</span>
+    </div>
+    <div class="relative h-72 w-full"><canvas id="cashflowLineChart"></canvas></div>
+  </div>
+  <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm ux-card-hover">
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="font-bold text-base text-darkText"><i class="fa-solid fa-clock-rotate-left text-accentPurple mr-2"></i>Timeline giao dịch</h4>
+      <span id="timelineCount" class="text-xs bg-purple-50 text-accentPurple px-3 py-1 rounded-full font-semibold">0 giao dịch</span>
+    </div>
+    <div id="transactionTimeline" class="timeline-wrap space-y-4 max-h-72 overflow-y-auto pr-1"></div>
+  </div>
+</div>
+
+        </section>
+
+        <!-- TAB 2: BÁO CÁO THÁNG -->
+        <section id="monthly" class="tab-content space-y-6">
+            <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-darkText"><i class="fa-solid fa-calendar-days text-accentOrange mr-2"></i>Báo Cáo Tài Chính Theo Tháng</h3>
+                        <p class="text-xs text-mutedText">Chọn tháng cụ thể qua popup để xem báo cáo chi tiết và biến động.</p>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-pink-50/70 px-3 py-1.5 rounded-xl border border-pink-100">
+                        <span class="text-xs font-bold text-mutedText"><i class="fa-solid fa-calendar-alt mr-1 text-accentOrange"></i> Tháng:</span>
+                        <select id="popupMonthSelect" onchange="renderMonthlyTab(this.value)" class="text-xs font-bold bg-white border border-pink-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accentOrange text-accentOrange">
+                            <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
+                            <option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option>
+                            <option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option>
+                            <option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-emerald-50/60 p-4 rounded-xl border border-emerald-100">
+                        <span class="text-[11px] font-semibold text-emerald-700 uppercase">Thu Nhập Tháng <span class="active-month-num">1</span></span>
+                        <h4 id="m-income" class="text-xl font-bold text-emerald-800 mt-1">0 ₫</h4>
+                    </div>
+                    <div class="bg-rose-50/60 p-4 rounded-xl border border-rose-100">
+                        <span class="text-[11px] font-semibold text-rose-700 uppercase">Chi Tiêu Tháng <span class="active-month-num">1</span></span>
+                        <h4 id="m-expense" class="text-xl font-bold text-rose-800 mt-1">0 ₫</h4>
+                    </div>
+                    <div class="bg-purple-50/60 p-4 rounded-xl border border-purple-100">
+                        <span class="text-[11px] font-semibold text-purple-700 uppercase">Tiết Kiệm Tháng <span class="active-month-num">1</span></span>
+                        <h4 id="m-saving" class="text-xl font-bold text-purple-800 mt-1">0 ₫</h4>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-pink-100">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-pink-50/80 text-[11px] font-bold text-mutedText uppercase tracking-wider">
+                                <th class="p-3.5">Hạng Mục / Danh Mục</th>
+                                <th class="p-3.5 text-right">Số Tiền (VNĐ)</th>
+                                <th class="p-3.5 text-center">Tỷ Trọng (%)</th>
+                                <th class="p-3.5">Đánh Giá Hiệu Suất</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyDetailTableBody" class="divide-y divide-pink-100 text-xs text-darkText font-medium"></tbody>
+                    </table>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-pink-100">
+                    <div class="bg-pink-50/30 p-5 rounded-2xl border border-pink-100">
+                        <h4 class="font-bold text-sm text-darkText mb-3"><i class="fa-solid fa-chart-pie text-accentPink mr-2"></i>Tỷ trọng chi tiêu tháng <span class="active-month-num">1</span></h4>
+                        <div class="relative h-56 w-full flex items-center justify-center"><canvas id="monthlyPieChart"></canvas></div>
+                    </div>
+                    <div class="bg-amber-50/50 p-5 rounded-2xl border border-amber-200 flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-bold text-sm text-amber-900 mb-2"><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-2"></i>Nhắc nhở & Biến động tài chính</h4>
+                            <p class="text-xs text-mutedText mb-3">Ghi nhận các khoản tăng giảm biến động từ 20% trở lên so với tháng trước:</p>
+                            <ul id="monthlyAlertList" class="space-y-2 text-xs font-medium text-darkText max-h-40 overflow-y-auto">
+                                <li class="text-mutedText italic">Đang phân tích dữ liệu biến động...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: BÁO CÁO CHI TIẾT -->
+        <section id="details" class="tab-content space-y-6">
+            <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-darkText"><i class="fa-solid fa-pen-to-square text-accentPink mr-2"></i>Báo cáo chi tiết</h3>
+                        <p class="text-xs text-mutedText">Dữ liệu được tự động phân loại và đồng bộ theo năm đang chọn.</p>
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <button onclick="openModal()" class="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-md shadow-pink-200 hover:opacity-95 transition">
+                            <i class="fa-solid fa-plus mr-1.5"></i> Thêm giao dịch mới
+                        </button>
+                        <button onclick="resetData()" class="bg-gray-100 text-mutedText px-3 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-200 transition" title="Khôi phục mặc định">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center justify-between gap-3 pt-2">
+                    <div class="relative w-full md:w-72">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-mutedText text-xs"></i>
+                        <input type="text" id="searchInput" oninput="renderTable()" placeholder="Tìm kiếm giao dịch, nội dung..." class="w-full pl-9 pr-4 py-2 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                    </div>
+                    <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+                        <select id="filterType" onchange="renderTable()" class="text-xs bg-pink-50/50 border border-pink-100 rounded-xl px-3 py-2 focus:outline-none focus:border-accentPink">
+                            <option value="all">Tất cả loại</option>
+                            <option value="Thu">Thu nhập</option>
+                            <option value="Chi">Chi tiêu</option>
+                        </select>
+                        <select id="filterCat" onchange="renderTable()" class="text-xs bg-pink-50/50 border border-pink-100 rounded-xl px-3 py-2 focus:outline-none focus:border-accentPink">
+                            <option value="all">Tất cả danh mục</option>
+                            <option value="Lương & Thưởng">Lương & Thưởng</option>
+                            <option value="Lãi nhuận">Lãi nhuận</option>
+                            <option value="Thu nhập Khác">Thu nhập Khác</option>
+                            <option value="Nhà cửa & Điện nước">Nhà cửa & Điện nước</option>
+                            <option value="Ăn uống & Cà phê">Ăn uống & Cà phê</option>
+                            <option value="Mua sắm cá nhân">Mua sắm cá nhân</option>
+                            <option value="Giải trí & Du lịch">Giải trí & Du lịch</option>
+                            <option value="Sức khỏe">Sức khỏe</option>
+                            <option value="Chi tiêu Khác">Chi tiêu Khác</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-pink-100">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-pink-50/80 text-[11px] font-bold text-mutedText uppercase tracking-wider">
+                                <th class="p-3.5">Tháng</th>
+                                <th class="p-3.5">Ngày</th>
+                                <th class="p-3.5">Hình thức</th>
+                                <th class="p-3.5">Phân loại</th>
+                                <th class="p-3.5">Hạng mục chi tiết</th>
+                                <th class="p-3.5">Nội dung / Ghi chú</th>
+                                <th class="p-3.5 text-right">Số tiền (VNĐ)</th>
+                                <th class="p-3.5 text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody" class="divide-y divide-pink-100 text-xs text-darkText font-medium"></tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-between items-center bg-pink-50/50 p-4 rounded-xl text-xs font-semibold text-mutedText">
+                    <span>Tổng số giao dịch: <strong id="record-count" class="text-accentPink">0</strong></span>
+                    <div class="space-x-4">
+                        <span>Tổng Thu: <strong id="sum-thu" class="text-emerald-600">0 ₫</strong></span>
+                        <span>Tổng Chi: <strong id="sum-chi" class="text-rose-600">0 ₫</strong></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: SHOPPING LIST -->
+        <section id="shopping" class="tab-content space-y-6">
+            <div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-pink-100 shadow-sm space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 class="font-bold text-lg text-darkText"><i class="fa-solid fa-bag-shopping text-accentPink mr-2"></i>Shopping List & Quản lý Mua Sắm</h3>
+                        <p class="text-xs text-mutedText">Danh sách các món đồ dự định mua sắm theo năm đang chọn.</p>
+                    </div>
+                    <div class="flex items-center space-x-3 flex-wrap gap-2">
+                        <div class="flex items-center space-x-2 bg-pink-50/70 px-3 py-1.5 rounded-xl border border-pink-100">
+                            <span class="text-xs font-bold text-mutedText"><i class="fa-solid fa-filter mr-1 text-accentPink"></i> Lọc:</span>
+                            <select id="shoppingStatusFilter" onchange="renderShoppingList()" class="text-xs font-bold bg-white border border-pink-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accentPink text-accentPink">
+                                <option value="all">Tất cả trạng thái</option>
+                                <option value="bought">Đã mua</option>
+                                <option value="pending">Chưa mua</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center space-x-2 bg-pink-50/70 px-3 py-1.5 rounded-xl border border-pink-100">
+                            <span class="text-xs font-bold text-mutedText"><i class="fa-solid fa-arrow-down-wide-short mr-1 text-accentPink"></i> Sắp xếp:</span>
+                            <select id="shoppingSortSelect" onchange="renderShoppingList()" class="text-xs font-bold bg-white border border-pink-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-accentPink text-accentPink">
+                                <option value="timeAsc">Thời gian tăng dần</option>
+                                <option value="timeDesc">Thời gian giảm dần</option>
+                                <option value="costAsc">Số tiền tăng dần</option>
+                                <option value="costDesc">Số tiền giảm dần</option>
+                            </select>
+                        </div>
+                        <button onclick="openShoppingModal()" class="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-md shadow-pink-200 hover:opacity-95 transition">
+                            <i class="fa-solid fa-cart-plus mr-1.5"></i> Thêm món đồ
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-pink-50/50 p-4 rounded-xl border border-pink-100">
+                        <span class="text-[11px] font-semibold text-mutedText uppercase">Tổng Ngân Sách Mua Sắm</span>
+                        <h4 id="shop-total" class="text-xl font-bold text-darkText mt-1">0 ₫</h4>
+                    </div>
+                    <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+                        <span class="text-[11px] font-semibold text-mutedText uppercase">Đã Thanh Toán</span>
+                        <h4 id="shop-bought" class="text-xl font-bold text-accentPurple mt-1">0 ₫</h4>
+                    </div>
+                    <div class="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                        <span class="text-[11px] font-semibold text-mutedText uppercase">Còn Lại Dự Kiến</span>
+                        <h4 id="shop-pending" class="text-xl font-bold text-accentOrange mt-1">0 ₫</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-pink-100 space-y-3">
+                    <h4 class="font-bold text-sm text-darkText"><i class="fa-solid fa-chart-bar text-accentPink mr-2"></i>Thống kê Mua sắm theo Tháng</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-pink-50/60 font-bold text-mutedText">
+                                    <th class="p-3">Tháng</th>
+                                    <th class="p-3 text-right">Đã mua (VNĐ)</th>
+                                    <th class="p-3 text-right">Chưa mua (VNĐ)</th>
+                                    <th class="p-3 text-right">Tổng cộng (VNĐ)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shoppingMonthlySummary" class="divide-y divide-pink-100 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="shoppingGridContainer"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Thêm/Sửa Giao Dịch -->
+    <div id="transactionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-pink-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="font-bold text-base text-darkText">Thêm Giao Dịch Mới</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-pink-50 text-accentPink flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="transForm" onsubmit="saveTransaction(event)" class="space-y-4">
+                <input type="hidden" id="transId">
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Ngày giao dịch</label>
+                    <input type="date" id="transDate" onchange="autoDetectMonth()" required class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                    <input type="hidden" id="transMonth">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Hình thức thanh toán (Ví)</label>
+                    <select id="transMethod" class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                        <option value="Tiền mặt">Ví Tiền mặt</option>
+                        <option value="Chuyển khoản">Ví Chuyển khoản</option>
+                        <option value="Tín dụng">Ví Tín dụng</option>
+                        <option value="Tiết kiệm">Ví Tiết kiệm</option>
+                        <option value="Chứng khoán">Ví Chứng khoán</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-mutedText mb-1">Phân loại</label>
+                        <select id="transType" onchange="updateCatSelect()" class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                            <option value="Chi">Chi tiêu</option>
+                            <option value="Thu">Thu nhập</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-mutedText mb-1">Hạng mục</label>
+                        <select id="transCategory" class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink"></select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Nội dung chi tiết</label>
+                    <input type="text" id="transDesc" placeholder="Ví dụ: Lương tháng, tiền nhà..." required class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                </div>
+                <div>
+                    <!-- ĐÃ FIX: Nhập thô tự do không bị nhảy số, chỉ định dạng khi rời ô (blur) -->
+                    <label class="block text-xs font-bold text-mutedText mb-1">Số tiền (VNĐ):</label>
+                    <input type="text" id="transAmountFormatted" oninput="onInputCurrency(this)" onblur="onBlurCurrency(this)" placeholder="Ví dụ: 500000" required class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                    <input type="hidden" id="transAmount">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-100 text-mutedText">Hủy</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md shadow-pink-200">Lưu Giao Dịch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Thêm/Sửa Shopping Item -->
+    <div id="shoppingModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-pink-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="shop-modal-title" class="font-bold text-base text-darkText">Thêm Món Đồ Mua Sắm</h3>
+                <button onclick="closeShoppingModal()" class="w-8 h-8 rounded-full bg-pink-50 text-accentPink flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="shoppingForm" onsubmit="saveShoppingItem(event)" class="space-y-4">
+                <input type="hidden" id="shopId">
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Tên món đồ</label>
+                    <input type="text" id="shopName" placeholder="Ví dụ: Giày thể thao, Túi xách..." required class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Tháng dự kiến</label>
+                    <select id="shopMonth" class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                        <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option>
+                        <option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option>
+                        <option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option>
+                        <option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-mutedText mb-1">Chi phí (VNĐ)</label>
+                    <input type="text" id="shopCostFormatted" oninput="onInputCurrencyShop(this)" onblur="onBlurCurrencyShop(this)" placeholder="500000" required class="w-full px-4 py-2.5 text-xs bg-pink-50/50 border border-pink-100 rounded-xl focus:outline-none focus:border-accentPink">
+                    <input type="hidden" id="shopCost">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeShoppingModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-100 text-mutedText">Hủy</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md shadow-pink-200">Lưu Món Đồ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+<script id="supabase-integration">
+/* ============================================================
+   SUPABASE CLOUD SYNC
+   Publishable key is safe for frontend use; RLS protects data.
+   ============================================================ */
+const SUPABASE_URL = 'https://pxylmpszsaqhwlexjjoe.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_8x0xvjpu--ZKgDCBzpNmzA_2jPZeim';
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+);
+
+let currentUser = null;
+let cloudReady = false;
+let authInitialized = false;
+
+function setCloudStatus(text, offline=false){
+    const el=document.getElementById('cloudStatus');
+    const tx=document.getElementById('cloudStatusText');
+    if(el) el.classList.toggle('offline', !!offline);
+    if(tx) tx.textContent=text;
+}
+
+function setAuthMessage(message, type='error'){
+    const el=document.getElementById('authMessage');
+    if(!el) return;
+    el.textContent=message || '';
+    el.className='auth-message mb-4' + (message ? ' '+type : '');
+}
+
+function setAuthLoading(show){
+    const el=document.getElementById('authLoading');
+    if(el) el.classList.toggle('hidden', !show);
+}
+
+function showAuthMode(mode){
+    ['login','register','reset'].forEach(m=>{
+        const form=document.getElementById(m+'Form');
+        if(form) form.style.display = m===mode ? 'block' : 'none';
+    });
+    setAuthMessage('');
+}
+
+async function handleLogin(e){
+    e.preventDefault();
+    const email=document.getElementById('loginEmail').value.trim();
+    const password=document.getElementById('loginPassword').value;
+    const btn=document.getElementById('loginBtn');
+    btn.disabled=true; setAuthLoading(true); setAuthMessage('');
+    const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+    btn.disabled=false; setAuthLoading(false);
+    if(error){
+        setAuthMessage('Đăng nhập không thành công: '+error.message,'error');
+    }
+}
+
+async function handleRegister(e){
+    e.preventDefault();
+    const email=document.getElementById('registerEmail').value.trim();
+    const password=document.getElementById('registerPassword').value;
+    const btn=document.getElementById('registerBtn');
+    btn.disabled=true; setAuthLoading(true); setAuthMessage('');
+    const {data,error}=await supabaseClient.auth.signUp({
+        email,
+        password,
+        options:{emailRedirectTo: window.location.href.split('#')[0]}
+    });
+    btn.disabled=false; setAuthLoading(false);
+    if(error){
+        setAuthMessage('Đăng ký không thành công: '+error.message,'error');
+        return;
+    }
+    if(data.session){
+        setAuthMessage('Tạo tài khoản thành công. Đang mở Dashboard...','success');
+    }else{
+        setAuthMessage('Tài khoản đã được tạo. Hãy kiểm tra email để xác nhận tài khoản, sau đó quay lại đăng nhập.','success');
+    }
+}
+
+async function handleReset(e){
+    e.preventDefault();
+    const email=document.getElementById('resetEmail').value.trim();
+    const btn=document.getElementById('resetBtn');
+    btn.disabled=true; setAuthLoading(true); setAuthMessage('');
+    const redirectTo=window.location.href.split('#')[0];
+    const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo});
+    btn.disabled=false; setAuthLoading(false);
+    if(error) setAuthMessage('Không thể gửi email: '+error.message,'error');
+    else setAuthMessage('Đã gửi email đặt lại mật khẩu. Hãy kiểm tra hộp thư.','success');
+}
+
+async function handleLogout(){
+    await supabaseClient.auth.signOut();
+    currentUser=null; cloudReady=false;
+    document.getElementById('authGate')?.classList.remove('hidden');
+    setCloudStatus('Chưa đăng nhập',true);
+    setAuthMessage('');
+    showAuthMode('login');
+}
+
+function normalizeTransaction(row){
+    return {
+        id: Number(row.id),
+        year: Number(row.year),
+        month: Number(row.month),
+        date: row.date,
+        method: row.method || 'Tiền mặt',
+        type: row.type,
+        category: row.category,
+        desc: row.description || '',
+        amount: Number(row.amount) || 0
+    };
+}
+
+function normalizeShopping(row){
+    return {
+        id: Number(row.id),
+        year: Number(row.year),
+        month: Number(row.month),
+        name: row.name,
+        cost: Number(row.cost) || 0,
+        bought: !!row.bought
+    };
+}
+
+async function fetchCloudData(){
+    if(!currentUser) return false;
+
+    const [tr,sh]=await Promise.all([
+        supabaseClient.from('transactions').select('*').eq('user_id',currentUser.id).order('date',{ascending:false}),
+        supabaseClient.from('shopping_list').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false})
+    ]);
+
+    if(tr.error) throw tr.error;
+    if(sh.error) throw sh.error;
+
+    const transactions=(tr.data||[]).map(normalizeTransaction);
+    const shoppingList=(sh.data||[]).map(normalizeShopping);
+
+    availableYears.forEach(y=>{
+        db[y]={
+            transactions: transactions.filter(t=>t.year===y),
+            shoppingList: shoppingList.filter(i=>i.year===y)
+        };
+    });
+
+    return transactions.length>0 || shoppingList.length>0;
+}
+
+function collectLocalData(){
+    const allTransactions=[];
+    const allShopping=[];
+    availableYears.forEach(y=>{
+        const source=db[y] || getDefaultDataForYear(y);
+        (source.transactions||[]).forEach(t=>allTransactions.push({
+            year:Number(t.year||y), month:Number(t.month||1), date:t.date,
+            method:t.method||'Tiền mặt', type:t.type, category:t.category,
+            description:t.desc||t.description||'', amount:Number(t.amount)||0
+        }));
+        (source.shoppingList||[]).forEach(i=>allShopping.push({
+            year:Number(i.year||y), month:Number(i.month||1), name:i.name,
+            cost:Number(i.cost)||0, bought:!!i.bought
+        }));
+    });
+    return {allTransactions,allShopping};
+}
+
+async function migrateLocalDataIfCloudEmpty(){
+    if(!currentUser) return;
+
+    const {count:trCount,error:trError}=await supabaseClient
+        .from('transactions').select('*',{count:'exact',head:true}).eq('user_id',currentUser.id);
+    if(trError) throw trError;
+
+    const {count:shCount,error:shError}=await supabaseClient
+        .from('shopping_list').select('*',{count:'exact',head:true}).eq('user_id',currentUser.id);
+    if(shError) throw shError;
+
+    if((trCount||0)>0 || (shCount||0)>0) return;
+
+    const {allTransactions,allShopping}=collectLocalData();
+
+    if(allTransactions.length){
+        const {error}=await supabaseClient.from('transactions').insert(
+            allTransactions.map(t=>({...t,user_id:currentUser.id}))
+        );
+        if(error) throw error;
+    }
+
+    if(allShopping.length){
+        const {error}=await supabaseClient.from('shopping_list').insert(
+            allShopping.map(i=>({...i,user_id:currentUser.id}))
+        );
+        if(error) throw error;
+    }
+}
+
+async function initializeCloudApp(){
+    setCloudStatus('Đang đồng bộ');
+    setAuthLoading(true);
+    try{
+        loadStorage();
+
+        const hasCloudData=await fetchCloudData();
+
+        if(!hasCloudData){
+            await migrateLocalDataIfCloudEmpty();
+            await fetchCloudData();
+        }
+
+        cloudReady=true;
+        setCloudStatus('Đã đồng bộ');
+        document.getElementById('authGate')?.classList.add('hidden');
+        const emailLabel=document.getElementById('userEmailLabel');
+        if(emailLabel) emailLabel.textContent=currentUser.email || '';
+        changeYear(currentYear);
+    }catch(error){
+        console.error(error);
+        cloudReady=false;
+        setCloudStatus('Lỗi đồng bộ',true);
+        setAuthMessage('Không thể tải dữ liệu: '+error.message,'error');
+        document.getElementById('authGate')?.classList.remove('hidden');
+    }finally{
+        setAuthLoading(false);
+    }
+}
+
+async function saveTransactionToCloud(payload, id=null){
+    if(!currentUser) throw new Error('Chưa đăng nhập.');
+    const row={
+        user_id:currentUser.id,
+        year:Number(payload.year),
+        month:Number(payload.month),
+        date:payload.date,
+        method:payload.method||'Tiền mặt',
+        type:payload.type,
+        category:payload.category,
+        description:payload.desc||'',
+        amount:Number(payload.amount)||0
+    };
+
+    if(id){
+        const {data,error}=await supabaseClient.from('transactions')
+            .update(row).eq('id',Number(id)).eq('user_id',currentUser.id).select().single();
+        if(error) throw error;
+        return normalizeTransaction(data);
+    }
+
+    const {data,error}=await supabaseClient.from('transactions')
+        .insert(row).select().single();
+    if(error) throw error;
+    return normalizeTransaction(data);
+}
+
+async function deleteTransactionFromCloud(id){
+    if(!currentUser) throw new Error('Chưa đăng nhập.');
+    const {error}=await supabaseClient.from('transactions')
+        .delete().eq('id',Number(id)).eq('user_id',currentUser.id);
+    if(error) throw error;
+}
+
+async function saveShoppingToCloud(payload,id=null){
+    if(!currentUser) throw new Error('Chưa đăng nhập.');
+    const row={
+        user_id:currentUser.id,
+        year:Number(payload.year),
+        month:Number(payload.month),
+        name:payload.name,
+        cost:Number(payload.cost)||0,
+        bought:!!payload.bought
+    };
+
+    if(id){
+        const {data,error}=await supabaseClient.from('shopping_list')
+            .update(row).eq('id',Number(id)).eq('user_id',currentUser.id).select().single();
+        if(error) throw error;
+        return normalizeShopping(data);
+    }
+
+    const {data,error}=await supabaseClient.from('shopping_list')
+        .insert(row).select().single();
+    if(error) throw error;
+    return normalizeShopping(data);
+}
+
+async function deleteShoppingFromCloud(id){
+    if(!currentUser) throw new Error('Chưa đăng nhập.');
+    const {error}=await supabaseClient.from('shopping_list')
+        .delete().eq('id',Number(id)).eq('user_id',currentUser.id);
+    if(error) throw error;
+}
+
+/* Realtime: another device changes data -> reload cloud data */
+function subscribeRealtime(){
+    if(!currentUser) return;
+    if(window.__financialRealtimeChannel){
+        supabaseClient.removeChannel(window.__financialRealtimeChannel);
+    }
+
+    window.__financialRealtimeChannel=supabaseClient.channel('financial-dashboard-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'transactions',filter:`user_id=eq.${currentUser.id}`},async()=>{
+          if(window.__realtimeBusy) return;
+          window.__realtimeBusy=true;
+          try{ await fetchCloudData(); renderTable(); renderShoppingList(); renderMonthlyTab(selectedMonth); renderOverviewCharts(); renderCashflowTimeline(); updateMobileSummary(); }
+          finally{ window.__realtimeBusy=false; }
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'shopping_list',filter:`user_id=eq.${currentUser.id}`},async()=>{
+          if(window.__realtimeBusy) return;
+          window.__realtimeBusy=true;
+          try{ await fetchCloudData(); renderShoppingList(); }
+          finally{ window.__realtimeBusy=false; }
+      })
+      .subscribe();
+}
+
+supabaseClient.auth.onAuthStateChange((event,session)=>{
+    // Do not await Supabase calls directly inside the auth callback.
+    // Schedule the cloud initialization after the callback returns.
+    setTimeout(async()=>{
+        if(session?.user){
+            const userChanged = currentUser?.id !== session.user.id;
+            currentUser=session.user;
+            if(event==='SIGNED_IN' || event==='INITIAL_SESSION' || userChanged || !cloudReady){
+                await initializeCloudApp();
+                subscribeRealtime();
+            }
+        }else{
+            currentUser=null; cloudReady=false;
+            if(window.__financialRealtimeChannel){
+                try{ await supabaseClient.removeChannel(window.__financialRealtimeChannel); }catch(e){}
+                window.__financialRealtimeChannel=null;
+            }
+            document.getElementById('authGate')?.classList.remove('hidden');
+            setCloudStatus('Chưa đăng nhập',true);
+        }
+        authInitialized=true;
+    },0);
+});
+
+function bootSupabaseApp(){
+    loadStorage();
+    document.getElementById('authGate')?.classList.remove('hidden');
+    setCloudStatus('Đang kiểm tra đăng nhập');
+}
+</script>
+
+    <!-- JavaScript Logic -->
+    <script>
+        const categoriesIncome = ['Lương & Thưởng', 'Lãi nhuận', 'Thu nhập Khác'];
+        const categoriesExpense = ['Nhà cửa & Điện nước', 'Ăn uống & Cà phê', 'Mua sắm cá nhân', 'Giải trí & Du lịch', 'Sức khỏe', 'Chi tiêu Khác'];
+        const availableYears = [2026, 2027, 2028, 2029, 2030];
+        const walletTypes = ['Tiền mặt', 'Chuyển khoản', 'Tín dụng', 'Tiết kiệm', 'Chứng khoán'];
+
+        let currentYear = 2027;
+        let selectedMonth = 1;
+
+        function getDefaultDataForYear(year) {
+            return {
+                transactions: [
+                    { id: 1, year: year, month: 1, date: `${year}-01-05`, method: 'Chuyển khoản', type: 'Thu', category: 'Lương & Thưởng', desc: `Lương tháng 1/${year}`, amount: 28000000 },
+                    { id: 2, year: year, month: 1, date: `${year}-01-08`, method: 'Tiền mặt', type: 'Chi', category: 'Nhà cửa & Điện nước', desc: 'Tiền thuê chung cư Q.1 & Điện nước', amount: 9500000 },
+                    { id: 3, year: year, month: 1, date: `${year}-01-10`, method: 'Tín dụng', type: 'Chi', category: 'Ăn uống & Cà phê', desc: 'Đi chợ tuần 1 & Cafe với team', amount: 3200000 },
+                    { id: 4, year: year, month: 1, date: `${year}-01-15`, method: 'Chuyển khoản', type: 'Chi', category: 'Mua sắm cá nhân', desc: 'Mua sắm đầu năm & Phụ kiện', amount: 1500000 },
+                    { id: 5, year: year, month: 2, date: `${year}-02-05`, method: 'Chuyển khoản', type: 'Thu', category: 'Lương & Thưởng', desc: `Lương tháng 2/${year} + Thưởng`, amount: 32000000 },
+                    { id: 6, year: year, month: 2, date: `${year}-02-10`, method: 'Tiền mặt', type: 'Chi', category: 'Nhà cửa & Điện nước', desc: 'Tiền nhà tháng 2', amount: 9500000 },
+                    { id: 7, year: year, month: 2, date: `${year}-02-15`, method: 'Tín dụng', type: 'Chi', category: 'Giải trí & Du lịch', desc: 'Du lịch nghỉ dưỡng đầu năm', amount: 4500000 }
+                ],
+                shoppingList: [
+                    { id: 1, year: year, month: 1, name: `Trang phục ${year}`, cost: 1500000, bought: true },
+                    { id: 2, year: year, month: 1, name: 'Tai nghe chống ồn làm việc', cost: 3800000, bought: false },
+                    { id: 3, year: year, month: 2, name: 'Giày thể thao chạy bộ', cost: 2200000, bought: false }
+                ]
+            };
+        }
+
+        let db = {};
+        
+        function loadStorage() {
+            availableYears.forEach(y => {
+                let savedTrans = localStorage.getItem(`fin_trans_${y}`);
+                let savedShop = localStorage.getItem(`fin_shop_${y}`);
+                if(savedTrans && savedShop) {
+                    db[y] = {
+                        transactions: JSON.parse(savedTrans),
+                        shoppingList: JSON.parse(savedShop)
+                    };
+                } else {
+                    db[y] = getDefaultDataForYear(y);
+                }
+            });
+        }
+
+        function saveStorage() {
+            // Local cache only. Cloud writes are handled explicitly by Supabase functions.
+            if(!db[currentYear]) return;
+            localStorage.setItem(`fin_trans_${currentYear}`, JSON.stringify(db[currentYear].transactions));
+            localStorage.setItem(`fin_shop_${currentYear}`, JSON.stringify(db[currentYear].shoppingList));
+        }
+
+        let barChartInstance = null;
+        let pieChartInstance = null;
+        let monthlyPieInstance = null;
+
+        function changeYear(yearVal) {
+            currentYear = Number(yearVal);
+            document.getElementById('globalYearSelect').value = currentYear;
+            document.getElementById('sidebar-year-label').innerText = currentYear;
+            document.getElementById('page-title').innerText = `Báo cáo Tổng quát Tài chính ${currentYear}`;
+            document.getElementById('bar-chart-title').innerHTML = `<i class="fa-solid fa-chart-column text-accentPink mr-2"></i>Biểu đồ Thu - Chi năm ${currentYear}`;
+            document.getElementById('chart-year-badge').innerText = `${currentYear} Analytics`;
+
+            renderTable();
+            renderShoppingList();
+            renderMonthlyTab(selectedMonth);
+            renderOverviewKPIs();
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.className = "nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 text-mutedText hover:bg-pink-50 hover:text-accentPink";
+            });
+            if(btn) {
+                btn.className = "nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md shadow-pink-200";
+            } else {
+                document.querySelectorAll('.nav-btn').forEach(b => {
+                    if(b.getAttribute('onclick').includes(tabId)) {
+                        b.className = "nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md shadow-pink-200";
+                    }
+                });
+            }
+
+            const titles = {
+                overview: `Báo cáo Tổng quát Tài chính ${currentYear}`,
+                monthly: `Báo cáo Tài chính Theo Tháng (${currentYear})`,
+                details: `Báo cáo chi tiết (${currentYear})`,
+                shopping: `Shopping List & Quản lý Mua sắm (${currentYear})`
+            };
+            document.getElementById('page-title').innerText = titles[tabId];
+
+            if(tabId === 'overview') { renderOverviewCharts(); renderCashflowTimeline(); updateMobileSummary(); }
+            if(tabId === 'monthly') renderMonthlyTab(selectedMonth);
+            if(tabId === 'shopping') renderShoppingList();
+        }
+
+        function formatVND(amount) {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        }
+
+        function formatNumberWithDots(number) {
+            return new Intl.NumberFormat('vi-VN').format(number);
+        }
+
+        // CƠ CHẾ NHẬP LIỆU MỚI: Gõ tự do, chỉ tự động format chấm khi rời ô (blur)
+        function onInputCurrency(input) {
+            let rawVal = input.value.replace(/\D/g, '');
+            document.getElementById('transAmount').value = rawVal;
+        }
+
+        function onBlurCurrency(input) {
+            let rawVal = input.value.replace(/\D/g, '');
+            if(rawVal !== '') {
+                let num = parseInt(rawVal, 10);
+                input.value = formatNumberWithDots(num);
+                document.getElementById('transAmount').value = num;
+            } else {
+                input.value = '';
+                document.getElementById('transAmount').value = '';
+            }
+        }
+
+        function onInputCurrencyShop(input) {
+            let rawVal = input.value.replace(/\D/g, '');
+            document.getElementById('shopCost').value = rawVal;
+        }
+
+        function onBlurCurrencyShop(input) {
+            let rawVal = input.value.replace(/\D/g, '');
+            if(rawVal !== '') {
+                let num = parseInt(rawVal, 10);
+                input.value = formatNumberWithDots(num);
+                document.getElementById('shopCost').value = num;
+            } else {
+                input.value = '';
+                document.getElementById('shopCost').value = '';
+            }
+        }
+
+        function autoDetectMonth() {
+            const dateVal = document.getElementById('transDate').value;
+            if(dateVal) {
+                const dateObj = new Date(dateVal);
+                const month = dateObj.getMonth() + 1;
+                document.getElementById('transMonth').value = month;
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('transactionTableBody');
+            tbody.innerHTML = '';
+
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const typeVal = document.getElementById('filterType').value;
+            const catVal = document.getElementById('filterCat').value;
+
+            let totalThu = 0;
+            let totalChi = 0;
+
+            const transactions = db[currentYear].transactions;
+
+            const filtered = transactions.filter(t => {
+                const matchSearch = t.desc.toLowerCase().includes(search) || t.category.toLowerCase().includes(search);
+                const matchType = typeVal === 'all' || t.type === typeVal;
+                const matchCat = catVal === 'all' || t.category === catVal;
+                return matchSearch && matchType && matchCat;
+            });
+
+            filtered.forEach(t => {
+                if(t.type === 'Thu') totalThu += Number(t.amount);
+                if(t.type === 'Chi') totalChi += Number(t.amount);
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-pink-50/40 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3.5 font-bold text-accentPink">Tháng ${t.month || 1}</td>
+                    <td class="p-3.5 font-medium">${t.date}</td>
+                    <td class="p-3.5 font-medium"><span class="bg-gray-100 text-mutedText px-2 py-0.5 rounded text-[11px]">${t.method || 'Tiền mặt'}</span></td>
+                    <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${t.type === 'Thu' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${t.type}</span></td>
+                    <td class="p-3.5 font-medium text-mutedText">${t.category}</td>
+                    <td class="p-3.5 font-semibold">${t.desc}</td>
+                    <td class="p-3.5 text-right font-bold ${t.type === 'Thu' ? 'text-emerald-600' : 'text-darkText'}">${t.type === 'Thu' ? '+' : '-'}${formatVND(t.amount)}</td>
+                    <td class="p-3.5 text-center">
+                        <button onclick="editTransaction(${t.id})" class="text-mutedText hover:text-accentPink p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteTransaction(${t.id})" class="text-mutedText hover:text-rose-500 p-1 ml-1"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('record-count').innerText = filtered.length;
+            document.getElementById('sum-thu').innerText = formatVND(totalThu);
+            document.getElementById('sum-chi').innerText = formatVND(totalChi);
+
+            updateOverviewKPIs();
+        }
+
+        function updateOverviewKPIs() {
+            let transactions = db[currentYear].transactions;
+            let totalThu = transactions.filter(t => t.type === 'Thu').reduce((a,b) => a + Number(b.amount), 0);
+            let totalChi = transactions.filter(t => t.type === 'Chi').reduce((a,b) => a + Number(b.amount), 0);
+            let saving = totalThu - totalChi;
+
+            document.getElementById('ov-income').innerText = formatVND(totalThu);
+            document.getElementById('ov-expense').innerText = formatVND(totalChi);
+            document.getElementById('ov-saving').innerText = formatVND(saving);
+
+            renderWalletsOverview();
+            renderOverviewCharts();
+            renderCashflowTimeline();
+            updateMobileSummary();
+        }
+
+        function renderWalletsOverview() {
+            const container = document.getElementById('walletsContainer');
+            container.innerHTML = '';
+
+            let allTransactions = [];
+            availableYears.forEach(y => {
+                if(db[y] && db[y].transactions) {
+                    allTransactions = allTransactions.concat(db[y].transactions);
+                }
+            });
+
+            walletTypes.forEach(wallet => {
+                let wTrans = allTransactions.filter(t => (t.method || 'Tiền mặt') === wallet);
+                let wThu = wTrans.filter(t => t.type === 'Thu').reduce((a,b) => a + Number(b.amount), 0);
+                let wChi = wTrans.filter(t => t.type === 'Chi').reduce((a,b) => a + Number(b.amount), 0);
+                let balance = wThu - wChi;
+
+                const card = document.createElement('div');
+                card.className = 'bg-pink-50/40 p-4 rounded-xl border border-pink-100 flex flex-col justify-between';
+                card.innerHTML = `
+                    <div>
+                        <span class="text-[11px] font-bold text-mutedText uppercase block mb-1"><i class="fa-solid fa-wallet text-accentPink mr-1"></i>Ví ${wallet}</span>
+                    </div>
+                    <div>
+                        <h5 class="text-sm font-bold ${balance >= 0 ? 'text-darkText' : 'text-rose-600'}">${formatVND(balance)}</h5>
+                        <span class="text-[10px] text-mutedText">Thu: ${formatVND(wThu)}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderOverviewCharts() {
+            let transactions = db[currentYear].transactions;
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            if(barChartInstance) barChartInstance.destroy();
+
+            let monthlyIncome = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => transactions.filter(t => (t.month || 1) === m && t.type === 'Thu').reduce((a,b) => a+b.amount, 0));
+            let monthlyExpense = [1,2,3,4,5,6,7,8,9,10,11,12].map(m => transactions.filter(t => (t.month || 1) === m && t.type === 'Chi').reduce((a,b) => a+b.amount, 0));
+
+            barChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
+                    datasets: [
+                        { label: 'Thu nhập', data: monthlyIncome, backgroundColor: '#EC4899', borderRadius: 6 },
+                        { label: 'Chi tiêu', data: monthlyExpense, backgroundColor: '#8B5CF6', borderRadius: 6 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            if(pieChartInstance) pieChartInstance.destroy();
+
+            let catSums = {};
+            categoriesExpense.forEach(cat => {
+                catSums[cat] = transactions.filter(t => t.category === cat && t.type === 'Chi').reduce((a,b) => a+b.amount, 0);
+            });
+
+            pieChartInstance = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catSums),
+                    datasets: [{
+                        data: Object.values(catSums),
+                        backgroundColor: ['#EC4899', '#F97316', '#8B5CF6', '#3B82F6', '#10B981', '#F43F5E'],
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+        }
+
+        function renderMonthlyTab(mVal) {
+            selectedMonth = Number(mVal);
+            document.getElementById('popupMonthSelect').value = selectedMonth;
+            document.querySelectorAll('.active-month-num').forEach(el => el.innerText = selectedMonth);
+
+            let transactions = db[currentYear].transactions;
+            let mTrans = transactions.filter(t => (t.month || 1) === selectedMonth);
+            let mInc = mTrans.filter(t => t.type === 'Thu').reduce((a,b) => a + b.amount, 0);
+            let mExp = mTrans.filter(t => t.type === 'Chi').reduce((a,b) => a + b.amount, 0);
+            let mSav = mInc - mExp;
+
+            document.getElementById('m-income').innerText = formatVND(mInc);
+            document.getElementById('m-expense').innerText = formatVND(mExp);
+            document.getElementById('m-saving').innerText = formatVND(mSav);
+
+            const tbody = document.getElementById('monthlyDetailTableBody');
+            tbody.innerHTML = '';
+
+            let allCats = [...categoriesIncome, ...categoriesExpense];
+            let catExpenseSums = {};
+            
+            allCats.forEach(cat => {
+                let catSum = mTrans.filter(t => t.category === cat).reduce((a,b) => a + b.amount, 0);
+                let percent = mInc > 0 ? ((catSum / mInc) * 100).toFixed(1) : 0;
+                let isInc = categoriesIncome.includes(cat);
+                if(!isInc) catExpenseSums[cat] = catSum;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-pink-50/40';
+                tr.innerHTML = `
+                    <td class="p-3.5 font-semibold text-darkText">${cat}</td>
+                    <td class="p-3.5 text-right font-bold ${isInc ? 'text-emerald-600' : 'text-darkText'}">${formatVND(catSum)}</td>
+                    <td class="p-3.5 text-center font-semibold text-mutedText">${percent}%</td>
+                    <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${catSum > 0 ? 'bg-pink-50 text-accentPink' : 'bg-gray-100 text-gray-400'}">${catSum > 0 ? 'Đã phát sinh' : 'Chưa ghi nhận'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const ctxMonthlyPie = document.getElementById('monthlyPieChart').getContext('2d');
+            if(monthlyPieInstance) monthlyPieInstance.destroy();
+            monthlyPieInstance = new Chart(ctxMonthlyPie, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catExpenseSums),
+                    datasets: [{
+                        data: Object.values(catExpenseSums),
+                        backgroundColor: ['#EC4899', '#F97316', '#8B5CF6', '#3B82F6', '#10B981', '#F43F5E'],
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+
+            renderMonthlyAlerts(selectedMonth);
+        }
+
+        function renderMonthlyAlerts(currentM) {
+            const alertList = document.getElementById('monthlyAlertList');
+            alertList.innerHTML = '';
+            let transactions = db[currentYear].transactions;
+
+            if(currentM === 1) {
+                alertList.innerHTML = `<li class="text-mutedText italic">Tháng 1 là tháng đầu năm, chưa có dữ liệu so sánh tháng liền trước.</li>`;
+                return;
+            }
+
+            let prevM = currentM - 1;
+            let currentExp = transactions.filter(t => (t.month || 1) === currentM && t.type === 'Chi').reduce((a,b) => a + b.amount, 0);
+            let prevExp = transactions.filter(t => (t.month || 1) === prevM && t.type === 'Chi').reduce((a,b) => a + b.amount, 0);
+
+            let hasAlert = false;
+
+            if(prevExp > 0) {
+                let diffPercent = ((currentExp - prevExp) / prevExp) * 100;
+                if(Math.abs(diffPercent) >= 20) {
+                    hasAlert = true;
+                    const li = document.createElement('li');
+                    li.className = `p-2 rounded-lg ${diffPercent > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`;
+                    li.innerHTML = `<i class="fa-solid ${diffPercent > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-1.5"></i> Tổng chi tiêu tháng ${currentM} <strong>${diffPercent > 0 ? 'tăng' : 'giảm'} ${Math.abs(diffPercent).toFixed(1)}%</strong> so với tháng ${prevM}.`;
+                    alertList.appendChild(li);
+                }
+            }
+
+            categoriesExpense.forEach(cat => {
+                let curCatSum = transactions.filter(t => (t.month || 1) === currentM && t.category === cat).reduce((a,b) => a + b.amount, 0);
+                let preCatSum = transactions.filter(t => (t.month || 1) === prevM && t.category === cat).reduce((a,b) => a + b.amount, 0);
+                if(preCatSum > 0) {
+                    let catDiff = ((curCatSum - preCatSum) / preCatSum) * 100;
+                    if(Math.abs(catDiff) >= 20) {
+                        hasAlert = true;
+                        const li = document.createElement('li');
+                        li.className = `p-2 rounded-lg ${catDiff > 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`;
+                        li.innerHTML = `<i class="fa-solid fa-tag mr-1.5"></i> Mục <strong>${cat}</strong> ${catDiff > 0 ? 'tăng' : 'giảm'} <strong>${Math.abs(catDiff).toFixed(1)}%</strong> (${formatVND(curCatSum)} so với ${formatVND(preCatSum)}).`;
+                        alertList.appendChild(li);
+                    }
+                }
+            });
+
+            if(!hasAlert) {
+                alertList.innerHTML = `<li class="text-emerald-700 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i> Các khoản thu chi ổn định, không có biến động đột biến (≥ 20%) so với tháng ${prevM}.</li>`;
+            }
+        }
+
+        function renderShoppingList() {
+            const container = document.getElementById('shoppingGridContainer');
+            container.innerHTML = '';
+
+            let shoppingList = [...db[currentYear].shoppingList];
+            const sortMode = document.getElementById('shoppingSortSelect').value;
+            const statusFilter = document.getElementById('shoppingStatusFilter').value;
+
+            if(statusFilter === 'bought') {
+                shoppingList = shoppingList.filter(i => i.bought);
+            } else if(statusFilter === 'pending') {
+                shoppingList = shoppingList.filter(i => !i.bought);
+            }
+
+            if(sortMode === 'timeAsc') {
+                shoppingList.sort((a, b) => (a.month || 1) - (b.month || 1));
+            } else if(sortMode === 'timeDesc') {
+                shoppingList.sort((a, b) => (b.month || 1) - (a.month || 1));
+            } else if(sortMode === 'costAsc') {
+                shoppingList.sort((a, b) => a.cost - b.cost);
+            } else if(sortMode === 'costDesc') {
+                shoppingList.sort((a, b) => b.cost - a.cost);
+            }
+
+            let fullShoppingList = db[currentYear].shoppingList;
+            let totalShop = fullShoppingList.reduce((a,b) => a + Number(b.cost), 0);
+            let boughtShop = fullShoppingList.filter(i => i.bought).reduce((a,b) => a + Number(b.cost), 0);
+            let pendingShop = totalShop - boughtShop;
+
+            document.getElementById('shop-total').innerText = formatVND(totalShop);
+            document.getElementById('shop-bought').innerText = formatVND(boughtShop);
+            document.getElementById('shop-pending').innerText = formatVND(pendingShop);
+
+            const summaryTbody = document.getElementById('shoppingMonthlySummary');
+            summaryTbody.innerHTML = '';
+            for(let m=1; m<=12; m++) {
+                let mItems = fullShoppingList.filter(i => (i.month || 1) === m);
+                if(mItems.length > 0) {
+                    let mBought = mItems.filter(i => i.bought).reduce((a,b) => a + Number(b.cost), 0);
+                    let mPending = mItems.filter(i => !i.bought).reduce((a,b) => a + Number(b.cost), 0);
+                    let mTotal = mBought + mPending;
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-pink-50/30';
+                    tr.innerHTML = `
+                        <td class="p-3 font-bold text-accentPink">Tháng ${m}</td>
+                        <td class="p-3 text-right text-emerald-600 font-semibold">${formatVND(mBought)}</td>
+                        <td class="p-3 text-right text-orange-500 font-semibold">${formatVND(mPending)}</td>
+                        <td class="p-3 text-right font-bold text-darkText">${formatVND(mTotal)}</td>
+                    `;
+                    summaryTbody.appendChild(tr);
+                }
+            }
+
+            shoppingList.forEach(item => {
+                const card = document.createElement('div');
+                const cardBg = item.bought ? 'bg-pink-50/30 border-pink-100 opacity-75' : 'bg-rose-50/40 border-rose-200 shadow-sm';
+                card.className = `p-4 rounded-2xl border transition-all flex flex-col justify-between ${cardBg}`;
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${item.bought ? 'bg-purple-50 text-accentPurple' : 'bg-rose-100 text-rose-700'}">Tháng ${item.month || 1} ${!item.bought ? '(Chưa mua)' : ''}</span>
+                            <div>
+                                <button onclick="editShopping(${item.id})" class="text-mutedText hover:text-accentPink text-xs mr-2"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="deleteShopping(${item.id})" class="text-mutedText hover:text-rose-500 text-xs"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-sm text-darkText ${item.bought ? 'line-through text-mutedText' : 'text-rose-900'}">${item.name}</h4>
+                    </div>
+                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-pink-100/60">
+                        <span class="text-xs font-bold text-accentPink">${formatVND(item.cost)}</span>
+                        <label class="flex items-center space-x-2 cursor-pointer text-xs font-semibold text-mutedText">
+                            <span>Đã mua</span>
+                            <input type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleShopping(${item.id})" class="rounded text-pink-500 w-4 h-4">
+                        </label>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+        }
+
+        function openShoppingModal() {
+            document.getElementById('shop-modal-title').innerText = 'Thêm Món Đồ Mua Sắm';
+            document.getElementById('shoppingForm').reset();
+            document.getElementById('shopId').value = '';
+            document.getElementById('shoppingModal').classList.remove('hidden');
+        }
+        function closeShoppingModal() { document.getElementById('shoppingModal').classList.add('hidden'); }
+
+        async function saveShoppingItem(e) {
+            e.preventDefault();
+            const id = document.getElementById('shopId').value;
+            const name = document.getElementById('shopName').value.trim();
+            const month = Number(document.getElementById('shopMonth').value);
+            const cost = Number(document.getElementById('shopCost').value);
+
+            try {
+                setCloudStatus('Đang lưu...');
+                const existing = id ? db[currentYear].shoppingList.find(i => i.id == id) : null;
+                const saved = await saveShoppingToCloud(
+                    {year: currentYear, month, name, cost, bought: existing?.bought || false},
+                    id ? Number(id) : null
+                );
+                let shoppingList = db[currentYear].shoppingList;
+                if(id){
+                    const idx=shoppingList.findIndex(i=>i.id==id);
+                    if(idx!==-1) shoppingList[idx]=saved;
+                }else{
+                    shoppingList.unshift(saved);
+                }
+                saveStorage();
+                closeShoppingModal();
+                renderShoppingList();
+                setCloudStatus('Đã đồng bộ');
+            } catch(error) {
+                console.error(error);
+                setCloudStatus('Lỗi lưu',true);
+                alert('Không thể lưu Shopping List: '+error.message);
+            }
+        }
+
+        function editShopping(id) {
+            let shoppingList = db[currentYear].shoppingList;
+            const item = shoppingList.find(i => i.id === id);
+            if(!item) return;
+            document.getElementById('shop-modal-title').innerText = 'Sửa Món Đồ Mua Sắm';
+            document.getElementById('shopId').value = item.id;
+            document.getElementById('shopName').value = item.name;
+            document.getElementById('shopMonth').value = item.month || 1;
+            document.getElementById('shopCost').value = item.cost;
+            document.getElementById('shopCostFormatted').value = formatNumberWithDots(item.cost);
+            document.getElementById('shoppingModal').classList.remove('hidden');
+        }
+
+        async function toggleShopping(id) {
+            let shoppingList = db[currentYear].shoppingList;
+            const item = shoppingList.find(i => i.id === id);
+            if(!item) return;
+            const newBought=!item.bought;
+            try{
+                setCloudStatus('Đang lưu...');
+                const saved=await saveShoppingToCloud({...item,bought:newBought},id);
+                const idx=shoppingList.findIndex(i=>i.id===id);
+                if(idx!==-1) shoppingList[idx]=saved;
+                saveStorage();
+                renderShoppingList();
+                setCloudStatus('Đã đồng bộ');
+            }catch(error){
+                console.error(error);
+                setCloudStatus('Lỗi lưu',true);
+                alert('Không thể cập nhật Shopping List: '+error.message);
+            }
+        }
+        async function deleteShopping(id) {
+            try{
+                setCloudStatus('Đang xóa...');
+                await deleteShoppingFromCloud(id);
+                db[currentYear].shoppingList = db[currentYear].shoppingList.filter(i => i.id !== id);
+                saveStorage();
+                renderShoppingList();
+                setCloudStatus('Đã đồng bộ');
+            }catch(error){
+                console.error(error);
+                setCloudStatus('Lỗi xóa',true);
+                alert('Không thể xóa món đồ: '+error.message);
+            }
+        }
+
+        function updateCatSelect() {
+            const type = document.getElementById('transType').value;
+            const cat = document.getElementById('transCategory');
+            cat.innerHTML = '';
+            let list = type === 'Thu' ? categoriesIncome : categoriesExpense;
+            list.forEach(c => {
+                cat.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function openModal() {
+            document.getElementById('modal-title').innerText = 'Thêm Giao Dịch Mới';
+            document.getElementById('transForm').reset();
+            document.getElementById('transId').value = '';
+            let today = `${currentYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+            document.getElementById('transDate').value = today;
+            autoDetectMonth();
+            updateCatSelect();
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('transactionModal').classList.add('hidden'); }
+
+        async function saveTransaction(e) {
+            e.preventDefault();
+            const id = document.getElementById('transId').value;
+            const date = document.getElementById('transDate').value;
+            const month = Number(document.getElementById('transMonth').value) || 1;
+            const method = document.getElementById('transMethod').value;
+            const type = document.getElementById('transType').value;
+            const category = document.getElementById('transCategory').value;
+            const desc = document.getElementById('transDesc').value;
+            const amount = Number(document.getElementById('transAmount').value);
+
+            const transYear = new Date(date).getFullYear() || currentYear;
+            if(!db[transYear]) db[transYear] = {transactions:[],shoppingList:[]};
+
+            try{
+                setCloudStatus('Đang lưu...');
+                const saved=await saveTransactionToCloud(
+                    {year:transYear, month, date, method, type, category, desc, amount},
+                    id ? Number(id) : null
+                );
+
+                let transactions=db[transYear].transactions;
+                if(id){
+                    const idx=transactions.findIndex(t=>t.id==id);
+                    if(idx!==-1) transactions[idx]=saved;
+                }else{
+                    transactions.unshift(saved);
+                }
+
+                currentYear=transYear;
+                document.getElementById('globalYearSelect').value=currentYear;
+                document.getElementById('sidebar-year-label').innerText=currentYear;
+                saveStorage();
+                closeModal();
+                renderTable();
+                renderMonthlyTab(selectedMonth);
+                renderOverviewCharts();
+                renderCashflowTimeline();
+                updateMobileSummary();
+                setCloudStatus('Đã đồng bộ');
+            }catch(error){
+                console.error(error);
+                setCloudStatus('Lỗi lưu',true);
+                alert('Không thể lưu giao dịch: '+error.message);
+            }
+        }
+
+        function editTransaction(id) {
+            let transactions = db[currentYear].transactions;
+            const item = transactions.find(t => t.id === id);
+            if(!item) return;
+            document.getElementById('modal-title').innerText = 'Sửa Giao Dịch';
+            document.getElementById('transId').value = item.id;
+            document.getElementById('transDate').value = item.date;
+            document.getElementById('transMonth').value = item.month || 1;
+            document.getElementById('transMethod').value = item.method || 'Tiền mặt';
+            document.getElementById('transType').value = item.type;
+            updateCatSelect();
+            document.getElementById('transCategory').value = item.category;
+            document.getElementById('transDesc').value = item.desc;
+            document.getElementById('transAmount').value = item.amount;
+            document.getElementById('transAmountFormatted').value = formatNumberWithDots(item.amount);
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+
+        async function deleteTransaction(id) {
+            if(!confirm('Bạn có chắc muốn xóa giao dịch này?')) return;
+            try{
+                setCloudStatus('Đang xóa...');
+                await deleteTransactionFromCloud(id);
+                db[currentYear].transactions = db[currentYear].transactions.filter(t => t.id !== id);
+                saveStorage();
+                renderTable();
+                renderMonthlyTab(selectedMonth);
+                renderOverviewCharts();
+                renderCashflowTimeline();
+                updateMobileSummary();
+                setCloudStatus('Đã đồng bộ');
+            }catch(error){
+                console.error(error);
+                setCloudStatus('Lỗi xóa',true);
+                alert('Không thể xóa giao dịch: '+error.message);
+            }
+        }
+
+        async function resetData() {
+            if(!confirm(`Khôi phục dữ liệu mẫu ban đầu cho năm ${currentYear}?\n\nDữ liệu hiện tại của năm này sẽ bị xóa trên Cloud.`)) return;
+            try{
+                setCloudStatus('Đang khôi phục...');
+                const {error:trErr}=await supabaseClient.from('transactions').delete().eq('user_id',currentUser.id).eq('year',currentYear);
+                if(trErr) throw trErr;
+                const {error:shErr}=await supabaseClient.from('shopping_list').delete().eq('user_id',currentUser.id).eq('year',currentYear);
+                if(shErr) throw shErr;
+
+                const defaults=getDefaultDataForYear(currentYear);
+                const trRows=defaults.transactions.map(t=>({
+                    user_id:currentUser.id,year:t.year,month:t.month,date:t.date,
+                    method:t.method,type:t.type,category:t.category,description:t.desc,amount:t.amount
+                }));
+                const shRows=defaults.shoppingList.map(i=>({
+                    user_id:currentUser.id,year:i.year,month:i.month,name:i.name,cost:i.cost,bought:i.bought
+                }));
+
+                if(trRows.length){
+                    const {error}=await supabaseClient.from('transactions').insert(trRows);
+                    if(error) throw error;
+                }
+                if(shRows.length){
+                    const {error}=await supabaseClient.from('shopping_list').insert(shRows);
+                    if(error) throw error;
+                }
+
+                await fetchCloudData();
+                saveStorage();
+                renderTable(); renderShoppingList(); renderMonthlyTab(selectedMonth);
+                renderOverviewCharts(); renderCashflowTimeline(); updateMobileSummary();
+                setCloudStatus('Đã đồng bộ');
+            }catch(error){
+                console.error(error);
+                setCloudStatus('Lỗi khôi phục',true);
+                alert('Không thể khôi phục dữ liệu: '+error.message);
+            }
+        }
+
+        function exportReportExcel() {
+            let transactions = db[currentYear].transactions;
+            if(transactions.length === 0) {
+                alert('Không có dữ liệu giao dịch trong năm này để xuất Excel!');
+                return;
+            }
+
+            let excelData = transactions.map((t, index) => ({
+                'STT': index + 1,
+                'Năm': t.year || currentYear,
+                'Tháng': `Tháng ${t.month || 1}`,
+                'Ngày': t.date,
+                'Hình thức thanh toán': t.method || 'Tiền mặt',
+                'Phân loại': t.type,
+                'Hạng mục chi tiết': t.category,
+                'Nội dung / Ghi chú': t.desc,
+                'Số tiền (VNĐ)': t.amount
+            }));
+
+            let worksheet = XLSX.utils.json_to_sheet(excelData);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, `BaoCao_${currentYear}`);
+            XLSX.writeFile(workbook, `BaoCaoTaiChinh_${currentYear}.xlsx`);
+        }
+
+        window.onload = function() {
+            currentYear = 2027;
+            bootSupabaseApp();
+        };
+    </script>
+
+<script id="ux-upgrade-js">
+let cashflowLineInstance = null;
+
+function renderCashflowTimeline(){
+  const transactions = [...(db[currentYear]?.transactions || [])];
+  const byMonth = Array.from({length:12}, (_,i)=>i+1).map(m=>{
+    const inc = transactions.filter(t=>(t.month||1)===m && t.type==='Thu').reduce((a,b)=>a+Number(b.amount),0);
+    const exp = transactions.filter(t=>(t.month||1)===m && t.type==='Chi').reduce((a,b)=>a+Number(b.amount),0);
+    return {m, inc, exp, net:inc-exp};
+  });
+
+  const ctx = document.getElementById('cashflowLineChart');
+  if(ctx){
+    if(cashflowLineInstance) cashflowLineInstance.destroy();
+    cashflowLineInstance = new Chart(ctx.getContext('2d'), {
+      type:'line',
+      data:{
+        labels:byMonth.map(x=>'T'+x.m),
+        datasets:[
+          {label:'Thu nhập', data:byMonth.map(x=>x.inc), borderColor:'#10B981', backgroundColor:'rgba(16,185,129,.08)', fill:true, tension:.35, pointRadius:4, pointHoverRadius:7},
+          {label:'Chi tiêu', data:byMonth.map(x=>x.exp), borderColor:'#8B5CF6', backgroundColor:'rgba(139,92,246,.06)', fill:true, tension:.35, pointRadius:4, pointHoverRadius:7},
+          {label:'Dòng tiền ròng', data:byMonth.map(x=>x.net), borderColor:'#EC4899', backgroundColor:'transparent', borderDash:[5,4], tension:.35, pointRadius:3, pointHoverRadius:6}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{
+          legend:{position:'bottom', labels:{boxWidth:10,font:{size:10}}},
+          tooltip:{callbacks:{label:(c)=>`${c.dataset.label}: ${formatVND(c.raw)}`}}
+        },
+        scales:{
+          y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>new Intl.NumberFormat('vi-VN',{notation:'compact'}).format(v)},grid:{color:'rgba(156,163,175,.12)'}},
+          x:{grid:{display:false},ticks:{font:{size:9}}}
+        },
+        onClick:(evt,els)=>{
+          if(els.length){ selectedMonth=els[0].index+1; renderMonthlyTab(selectedMonth); switchTab('monthly'); }
+        }
+      }
+    });
+  }
+
+  const timeline = document.getElementById('transactionTimeline');
+  if(!timeline) return;
+  const recent = transactions.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
+  document.getElementById('timelineCount').textContent = `${transactions.length} giao dịch`;
+  timeline.innerHTML = recent.length ? recent.map(t=>`
+    <div class="timeline-item ${t.type==='Thu'?'income':'expense'}">
+      <span class="timeline-dot"></span>
+      <div class="bg-pink-50/40 rounded-xl p-3 border border-pink-100">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="text-[10px] text-mutedText">${t.date} · Tháng ${t.month||1}</div>
+            <div class="text-xs font-bold text-darkText mt-1">${t.desc}</div>
+            <div class="text-[10px] text-mutedText mt-1">${t.category} · ${t.method||'Tiền mặt'}</div>
+          </div>
+          <div class="text-xs font-bold whitespace-nowrap ${t.type==='Thu'?'text-emerald-600':'text-rose-600'}">
+            ${t.type==='Thu'?'+':'-'}${formatVND(t.amount)}
+          </div>
+        </div>
+      </div>
+    </div>`).join('') :
+    '<div class="text-xs text-mutedText italic p-3">Chưa có giao dịch.</div>';
+}
+
+function updateMobileSummary(){
+  const ts = db[currentYear]?.transactions || [];
+  const inc = ts.filter(t=>t.type==='Thu').reduce((a,b)=>a+Number(b.amount),0);
+  const exp = ts.filter(t=>t.type==='Chi').reduce((a,b)=>a+Number(b.amount),0);
+  const mi=document.getElementById('mobileIncome'), me=document.getElementById('mobileExpense'), ms=document.getElementById('mobileSaving');
+  if(mi) mi.textContent=formatVND(inc);
+  if(me) me.textContent=formatVND(exp);
+  if(ms) ms.textContent=formatVND(inc-exp);
+}
+</script>
+
+</body>
+</html>
